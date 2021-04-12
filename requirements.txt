@@ -1,0 +1,5 @@
+deta
+fastapi
+uvicorn
+pyjwt
+passlib[bcrypt]
