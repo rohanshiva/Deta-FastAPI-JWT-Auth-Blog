@@ -4,7 +4,7 @@ from deta import Deta
 from auth import Auth
 from user_modal import AuthModal
 
-deta = Deta() # get project key from import jwt
+deta = Deta()
 users_db = deta.Base('users')
 
 app = FastAPI()
