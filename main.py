@@ -1,10 +1,10 @@
 from fastapi import FastAPI, HTTPException
 from deta import Deta
-from config import DETA_PROJECT_KEY
+
 from auth import Auth
 from user_modal import AuthModal
 
-deta = Deta(DETA_PROJECT_KEY) # get project key from import jwt
+deta = Deta() # get project key from import jwt
 users_db = deta.Base('users')
 
 app = FastAPI()
