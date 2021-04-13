@@ -34,6 +34,11 @@ def login(user_details: AuthModal):
     token = auth_handler.encode_token(user['key'])
     return {'token': token}
 
+@app.get('/refresh_token')
+def refresh_token(Authorization: str):
+    expired_token = Authorization[8:]
+    return auth_handler.refresh_token(expired_token)
+
 @app.post('/secret')
 def secret_data(Authorization: str):
     token = Authorization[8:]
