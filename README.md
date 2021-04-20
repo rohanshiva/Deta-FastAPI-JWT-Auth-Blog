@@ -244,6 +244,11 @@ class Auth():
 In the next article, we will implement the logic in a FastAPI application and deploy our app on Deta micros! [The full code is available here.](https://github.com/rohanshiva/Deta-FastAPI-JWT-Auth-Blog)
 
 
+---
+title: "Get started with FastAPI JWT authentication – Part 2"
+date: 2021-04-13
+draft: false
+---
 # Get started with FastAPI JWT authentication – Part 2
 This is the second of a two part series on implementing authorization in a FastAPI application using Deta. In the previous article, we learned a bit about JWT, set up the project, and finished the building blocks of authorization logic. In this article, let's implement the logic, and deploy our app on Deta micros! [The full code is available here.](https://github.com/rohanshiva/Deta-FastAPI-JWT-Auth-Blog) 
 
@@ -268,11 +273,14 @@ Update the `main.py` , with the following import statements
 ```python
 from auth import Auth
 from user_modal import AuthModal
+from fastapi import FastAPI, HTTPException, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 ```
 
-Also, we will create an `auth_handler` to access the logic from the `Auth` class
+Also, we will create an `auth_handler` to access the logic from the `Auth` class. We will use `security` in our protected endpoints to access the token from the request header.
 
 ```python
+security = HTTPBearer()
 auth_handler = Auth()
 ```
 
@@ -313,8 +321,8 @@ If the account with the username doesn't exist, or if the hashed password in the
 
 ```python
 @app.post('/secret')
-def secret_data(Authorization: str):
-    token = Authorization[8:]
+def secret_data(credentials: HTTPAuthorizationCredentials = Security(security)):
+    token = credentials.credentials
     if(auth_handler.decode_token(token)):
         return 'Top Secret data only authorized users can access this info'
 
@@ -323,14 +331,14 @@ def not_secret_data():
     return 'Not secret data'
 ```
 
-The `/secret` endpoint only returns the "Secret Data" if the token argument is valid. However, if the token is invalid or an expired token, then `decode_token` raises a `HTTPException`. The argument  `Authorization` is normally in this format `Authorization: Bearer <token>`. Therefore, to get the token we can take the substring from index 8. 
+The `/secret` endpoint only returns the "Secret Data" if the token argument is valid. However, if the token is invalid or an expired token, then `decode_token` raises a `HTTPException`. The token is usually passed in the request header as `Authorization: Bearer <token>`. Therefore, to get the token we can wrap the input `credentials` around `HTTPAuthorizationCredentials` tag. Now we can access the token from the request header in `credentials.credentials`. 
 
 The `/not_secret` endpoint is an example of an unprotected endpoint, which doesn't require any authentication.
 
 ```python
 @app.get('/refresh_token')
-def refresh_token(Authorization: str):
-    expired_token = Authorization[8:]
+def refresh_token(credentials: HTTPAuthorizationCredentials = Security(security)):
+    expired_token = credentials.credentials
     return auth_handler.refresh_token(expired_token)
 ```
 
@@ -339,8 +347,8 @@ def refresh_token(Authorization: str):
 Here is a look at `main.py` at the end:
 
 ```python
-from fastapi import FastAPI, HTTPException
-from deta import Deta
+from fastapi import FastAPI, HTTPException, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from auth import Auth
 from user_modal import AuthModal
 
@@ -349,6 +357,7 @@ users_db = deta.Base('users')
 
 app = FastAPI()
 
+security = HTTPBearer()
 auth_handler = Auth()
 
 @app.post('/signup')
@@ -375,13 +384,13 @@ def login(user_details: AuthModal):
     return {'token': token}
 
 @app.get('/refresh_token')
-def refresh_token(Authorization: str):
-    expired_token = Authorization[8:]
+def refresh_token(credentials: HTTPAuthorizationCredentials = Security(security)):
+    expired_token = credentials.credentials
     return auth_handler.refresh_token(expired_token)
 
 @app.post('/secret')
-def secret_data(Authorization: str):
-    token = Authorization[8:]
+def secret_data(credentials: HTTPAuthorizationCredentials = Security(security)):
+    token = credentials.credentials
     if(auth_handler.decode_token(token)):
         return 'Top Secret data only authorized users can access this info'
 
@@ -433,8 +442,9 @@ Response Body
 
 ```python
 curl -X 'POST' \
-  'http://127.0.0.1:8000/secret?Authorization=%20Bearer%20eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2MTgyNDE1MjAsImlhdCI6MTYxODIzOTcyMCwic3ViIjoiZmx5aW5nc3BvbmdlIn0.SoMeSo_b9z4fC-XnR8bepUbFvWvSEw9rRQ9LMJNzm3k' \
+  'http://127.0.0.1:8000/secret' \
   -H 'accept: application/json' \
+  -H 'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2MTg5MzU3MzcsImlhdCI6MTYxODkzNTY3Nywic3ViIjoicm9oYW4ifQ.dja0E6SUaZfEvYVKySjLE9OLXOtob5pjpy3R_rlCD7c' \
   -d ''
 
 Response body
@@ -456,10 +466,10 @@ Response Body
 
 ```json
 curl -X 'POST' \
-  'http://127.0.0.1:8000/secret?Authorization=%20Bearer%20eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2MTgzMjExMzEsImlhdCI6MTYxODMyMTA3MSwic3ViIjoic2lkIn0.dMPPC95JWeL_rlFfZwgtcVJ9OSi7k6ArZoxOvVbzbZw' \
+  'http://127.0.0.1:8000/secret' \
   -H 'accept: application/json' \
+  -H 'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2MTg5MzU3MzcsImlhdCI6MTYxODkzNTY3Nywic3ViIjoicm9oYW4ifQ.dja0E6SUaZfEvYVKySjLE9OLXOtob5pjpy3R_rlCD7c' \
   -d ''
-
 Response Body
 {
   "detail": "Token expired"
@@ -472,26 +482,37 @@ Now that the token is expired, let's get a new one
 
 ```json
 curl -X 'GET' \
-  'http://127.0.0.1:8000/refresh_token?Authorization=%20Bearer%20eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2MTgzMjExMzEsImlhdCI6MTYxODMyMTA3MSwic3ViIjoic2lkIn0.dMPPC95JWeL_rlFfZwgtcVJ9OSi7k6ArZoxOvVbzbZw' \
-  -H 'accept: application/json'
+  'http://127.0.0.1:8000/refresh_token' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2MTg5MzU3MzcsImlhdCI6MTYxODkzNTY3Nywic3ViIjoicm9oYW4ifQ.dja0E6SUaZfEvYVKySjLE9OLXOtob5pjpy3R_rlCD7c'
 
 Response Body
 {
-  "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2MTgzMjQ1NjksImlhdCI6MTYxODMyNDUwOSwic3ViIjoic2lkIn0.4RL1t-oa1OOGQoA-AZcgoIoa14J-l-wLHfBtAXX3ik4"
+  "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2MTg5MzU5MDcsImlhdCI6MTYxODkzNTg0Nywic3ViIjoicm9oYW4ifQ.VI1vqMZ2Mklue-bv5WtwhFxbVsbHkRHOr3fON49wpmE"
 }
 ```
 
 ## Deploy on Deta micros
-
-Run the following commands in the same directory to deploy our app on Deta micros.
+Before we begin, make sure to [install the Deta CLI.](https://docs.deta.sh/docs/cli/install) After installing, run the following commands in the same directory to deploy our app on Deta micros.
 
 ```json
 deta login
 ```
+We also need to add a `.env` file with the secret.
+
+```
+APP_SECRET_STRING=SECRET_STRING
+```
+
+Now we need to update our micro by doing:
 
 ```python
 deta new 
+deta update -e .env
+deta deploy
 ```
+
+
 
 ## Summary
 
