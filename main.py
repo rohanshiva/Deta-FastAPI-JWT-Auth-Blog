@@ -1,6 +1,5 @@
-from fastapi import FastAPI, HTTPException
-from deta import Deta
-
+from fastapi import FastAPI, HTTPException, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from auth import Auth
 from user_modal import AuthModal
 
@@ -9,6 +8,7 @@ users_db = deta.Base('users')
 
 app = FastAPI()
 
+security = HTTPBearer()
 auth_handler = Auth()
 
 @app.post('/signup')
@@ -35,13 +35,13 @@ def login(user_details: AuthModal):
     return {'token': token}
 
 @app.get('/refresh_token')
-def refresh_token(Authorization: str):
-    expired_token = Authorization[8:]
+def refresh_token(credentials: HTTPAuthorizationCredentials = Security(security)):
+    expired_token = credentials.credentials
     return auth_handler.refresh_token(expired_token)
 
 @app.post('/secret')
-def secret_data(Authorization: str):
-    token = Authorization[8:]
+def secret_data(credentials: HTTPAuthorizationCredentials = Security(security)):
+    token = credentials.credentials
     if(auth_handler.decode_token(token)):
         return 'Top Secret data only authorized users can access this info'
 
