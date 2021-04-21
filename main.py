@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from auth import Auth
-from user_modal import AuthModal
+from user_model import AuthModel
 
 deta = Deta()
 users_db = deta.Base('users')
@@ -12,7 +12,7 @@ security = HTTPBearer()
 auth_handler = Auth()
 
 @app.post('/signup')
-def signup(user_details: AuthModal):
+def signup(user_details: AuthModel):
     if users_db.get(user_details.username) != None:
         return 'Account already exists'
     try:
@@ -24,20 +24,21 @@ def signup(user_details: AuthModal):
         return error_msg
 
 @app.post('/login')
-def login(user_details: AuthModal):
+def login(user_details: AuthModel):
     user = users_db.get(user_details.username)
     if (user is None):
         return HTTPException(status_code=401, detail='Invalid username')
     if (not auth_handler.verify_password(user_details.password, user['password'])):
         return HTTPException(status_code=401, detail='Invalid password')
     
-    token = auth_handler.encode_token(user['key'])
-    return {'token': token}
+    access_token = auth_handler.encode_token(user['key'])
+    refresh_token = auth_handler.encode_refresh_token(user['key'])
+    return {'access_token': access_token, 'refresh_token': refresh_token}
 
 @app.get('/refresh_token')
 def refresh_token(credentials: HTTPAuthorizationCredentials = Security(security)):
-    expired_token = credentials.credentials
-    return auth_handler.refresh_token(expired_token)
+    refresh_token = credentials.credentials
+    return auth_handler.refresh_token(refresh_token)
 
 @app.post('/secret')
 def secret_data(credentials: HTTPAuthorizationCredentials = Security(security)):
