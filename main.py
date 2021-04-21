@@ -38,7 +38,8 @@ def login(user_details: AuthModel):
 @app.get('/refresh_token')
 def refresh_token(credentials: HTTPAuthorizationCredentials = Security(security)):
     refresh_token = credentials.credentials
-    return auth_handler.refresh_token(refresh_token)
+    new_token = auth_handler.refresh_token(refresh_token)
+    return {'access_token': new_token}
 
 @app.post('/secret')
 def secret_data(credentials: HTTPAuthorizationCredentials = Security(security)):
