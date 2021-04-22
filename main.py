@@ -2,6 +2,8 @@ from fastapi import FastAPI, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from auth import Auth
 from user_model import AuthModel
+from deta import Deta
+
 
 deta = Deta()
 users_db = deta.Base('users')
